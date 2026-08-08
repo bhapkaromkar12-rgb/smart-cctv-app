@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart CCTV - Login & Register</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: #1e293b; padding: 25px; border-radius: 12px; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h2 { text-align: center; color: #38bdf8; margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; color: #94a3b8; }
+        input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 14px; }
+        input:focus { border-color: #38bdf8; outline: none; }
+        .flex-row { display: flex; gap: 8px; }
+        .btn { width: 100%; padding: 10px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn:hover { background: #0369a1; }
+        .btn-small { width: auto; padding: 10px 15px; margin-top: 0; font-size: 12px; background: #3b82f6; }
+        .switch-link { text-align: center; margin-top: 15px; font-size: 13px; color: #94a3b8; }
+        .switch-link a { color: #38bdf8; text-decoration: none; cursor: pointer; }
+        .captcha-box { background: #334155; padding: 8px; border-radius: 6px; text-align: center; font-weight: bold; letter-spacing: 3px; font-size: 18px; color: #facc15; }
+        .alert { color: #ef4444; font-size: 13px; text-align: center; margin-bottom: 10px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="msgAlert" class="alert hidden"></div>
+
+    <!-- ================= LOGIN FORM ================= -->
+    <div id="loginSection">
+        <h2>🔒 CCTV Login</h2>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="loginUser" placeholder="Enter username">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="loginPass" placeholder="Enter password">
+        </div>
+        <div class="form-group">
+            <label>Captcha Verification</label>
+            <div class="flex-row">
+                <div id="captchaCode" class="captcha-box" style="flex:1;">1234</div>
+                <input type="text" id="captchaInput" placeholder="Enter Captcha" style="flex:1;">
+            </div>
+        </div>
+        <button class="btn" onclick="handleLogin()">Login to Dashboard</button>
+        <div class="switch-link">
+            <a onclick="showSection('forgotSection')">Forgot Password?</a> | 
+            <a onclick="showSection('registerSection')">Create Account</a>
+        </div>
+    </div>
+
+    <!-- ================= REGISTER FORM ================= -->
+    <div id="registerSection" class="hidden">
+        <h2>📝 Register User</h2>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="regUser" placeholder="Choose username">
+        </div>
+        <div class="form-group">
+            <label>Mobile Number</label>
+            <div class="flex-row">
+                <input type="text" id="regMobile" placeholder="10-digit mobile">
+                <button class="btn btn-small" onclick="sendOTP('regMobile')">Send OTP</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Enter OTP</label>
+            <input type="text" id="regOTP" placeholder="4-digit OTP">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="regPass" placeholder="Enter password">
+        </div>
+        <div class="form-group">
+            <label>Retype Password</label>
+            <input type="password" id="regPass2" placeholder="Confirm password">
+        </div>
+        <button class="btn" onclick="handleRegister()">Register Account</button>
+        <div class="switch-link">
+            Already have an account? <a onclick="showSection('loginSection')">Login here</a>
+        </div>
+    </div>
+
+    <!-- ================= FORGOT PASSWORD ================= -->
+    <div id="forgotSection" class="hidden">
+        <h2>🔑 Reset Password</h2>
+        <div class="form-group">
+            <label>Registered Mobile Number</label>
+            <div class="flex-row">
+                <input type="text" id="forgotMobile" placeholder="10-digit mobile">
+                <button class="btn btn-small" onclick="sendOTP('forgotMobile')">Send OTP</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Enter OTP</label>
+            <input type="text" id="forgotOTP" placeholder="4-digit OTP">
+        </div>
+        <div class="form-group">
+            <label>New Password</label>
+            <input type="password" id="newPass" placeholder="New password">
+        </div>
+        <button class="btn" onclick="handleResetPassword()">Reset & Save Password</button>
+        <div class="switch-link">
+            Back to <a onclick="showSection('loginSection')">Login</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentCaptcha = "";
+
+    function generateCaptcha() {
+        currentCaptcha = Math.floor(1000 + Math.random() * 9000).toString();
+        document.getElementById("captchaCode").innerText = currentCaptcha;
+    }
+
+    function showSection(id) {
+        document.getElementById("loginSection").classList.add("hidden");
+        document.getElementById("registerSection").classList.add("hidden");
+        document.getElementById("forgotSection").classList.add("hidden");
+        document.getElementById("msgAlert").classList.add("hidden");
+        document.getElementById(id).classList.remove("hidden");
+        if(id === 'loginSection') generateCaptcha();
+    }
+
+    function showAlert(msg) {
+        const box = document.getElementById("msgAlert");
+        box.innerText = msg;
+        box.classList.remove("hidden");
+    }
+
+    async function sendOTP(inputId) {
+        const mobile = document.getElementById(inputId).value;
+        if(!mobile || mobile.length < 10) return showAlert("Enter valid 10-digit mobile number!");
+        
+        const res = await fetch("/api/send-otp", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ mobile })
+        });
+        const data = await res.json();
+        alert(data.message + " (Testing OTP: " + data.demo_otp + ")");
+    }
+
+    async function handleRegister() {
+        const username = document.getElementById("regUser").value;
+        const mobile = document.getElementById("regMobile").value;
+        const otp = document.getElementById("regOTP").value;
+        const password = document.getElementById("regPass").value;
+        const pass2 = document.getElementById("regPass2").value;
+
+        if(password !== pass2) return showAlert("Passwords do not match!");
+
+        const res = await fetch("/api/register", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ username, mobile, otp, password })
+        });
+        const data = await res.json();
+        if(res.ok) {
+            alert("Registration Successful! Please login.");
+            showSection("loginSection");
+        } else {
+            showAlert(data.detail || "Registration failed!");
+        }
+    }
+
+    async function handleLogin() {
+        const username = document.getElementById("loginUser").value;
+        const password = document.getElementById("loginPass").value;
+        const captcha = document.getElementById("captchaInput").value;
+
+        if(captcha !== currentCaptcha) {
+            generateCaptcha();
+            return showAlert("Invalid Captcha Code!");
+        }
+
+        const res = await fetch("/api/login", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if(res.ok) {
+            window.location.href = "/dashboard";
+        } else {
+            showAlert(data.detail || "Invalid credentials!");
+            generateCaptcha();
+        }
+    }
+
+    async function handleResetPassword() {
+        const mobile = document.getElementById("forgotMobile").value;
+        const otp = document.getElementById("forgotOTP").value;
+        const new_password = document.getElementById("newPass").value;
+
+        const res = await fetch("/api/reset-password", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ mobile, otp, new_password })
+        });
+        const data = await res.json();
+        if(res.ok) {
+            alert("Password Reset Successful!");
+            showSection("loginSection");
+        } else {
+            showAlert(data.detail || "Reset failed!");
+        }
+    }
+
+    generateCaptcha();
+</script>
+</body>
+</html>

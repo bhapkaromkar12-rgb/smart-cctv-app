@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart CCTV App Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #121212; color: #ffffff; display: flex; justify-content: center; padding: 20px; }
+        
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            background: #1e1e1e;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .header h2 { font-size: 20px; color: #4CAF50; }
+        .status-badge { background: #e53935; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; animation: pulse 1.5s infinite; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .video-card {
+            width: 100%;
+            height: 280px;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #333;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .video-card img { width: 100%; height: 100%; object-fit: cover; }
+
+        .section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #bbb; }
+
+        .btn-group { display: flex; gap: 10px; margin-bottom: 25px; }
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-primary { background: #2196F3; color: white; }
+        .btn-primary:hover { background: #1e88e5; }
+        .btn-secondary { background: #333; color: white; }
+        .btn-secondary:hover { background: #444; }
+
+        .gallery-container {
+            max-height: 200px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .video-item {
+            background: #2a2a2a;
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .video-item span { font-size: 13px; color: #ddd; }
+        .play-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* Modal Player */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #222;
+            padding: 15px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            text-align: right;
+        }
+        .modal video { width: 100%; border-radius: 8px; margin-top: 10px; }
+        .close-btn { background: #ff5252; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- App Header -->
+        <div class="header">
+            <h2>🎥 Smart CCTV App</h2>
+            <span class="status-badge">● LIVE</span>
+        </div>
+
+        <!-- Live Stream Feed -->
+        <div class="video-card">
+            <img id="stream" src="/video_feed" alt="Camera Stream Loading...">
+        </div>
+
+        <!-- Quick Controls -->
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="stopStream()">⏹ Stop Stream</button>
+            <button class="btn btn-primary" onclick="refreshStream()">🔄 Refresh Feed</button>
+            <button class="btn btn-secondary" onclick="loadGallery()">📂 Load Clips</button>
+        </div>
+
+        <!-- Saved Recordings List -->
+        <div class="section-title">Saved Motion Recordings (.mp4)</div>
+        <div class="gallery-container" id="galleryList">
+            <div style="font-size:12px; color:#888;">Click 'Load Clips' to check saved videos...</div>
+        </div>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div class="modal" id="videoModal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal()">✕ Close</button>
+            <video id="videoPlayer" controls autoplay></video>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = window.location.origin;
+
+        function refreshStream() {
+            const img = document.getElementById('stream');
+            img.src = `${BASE_URL}/video_feed?t=${new Date().getTime()}`;
+        }
+        function stopStream() {
+    const img = document.getElementById('stream');
+    img.src = ""; // Video stream link hata kar stop kar deta hai
+}
+
+        async function loadGallery() {
+            const galleryList = document.getElementById('galleryList');
+            galleryList.innerHTML = `<div style="font-size:12px; color:#888;">Fetching videos...</div>`;
+
+            try {
+                const response = await fetch(`${BASE_URL}/gallery`);
+                const data = await response.json();
+
+                if (data.videos.length === 0) {
+                    galleryList.innerHTML = `<div style="font-size:12px; color:#888;">No motion clips recorded yet. Move in front of camera!</div>`;
+                    return;
+                }
+
+                galleryList.innerHTML = '';
+                data.videos.reverse().forEach(video => {
+                    const item = document.createElement('div');
+                    item.className = 'video-item';
+                    item.innerHTML = `
+                        <span>📁 ${video}</span>
+                        <button class="play-btn" onclick="playVideo('${video}')">▶ Play</button>
+                    `;
+                    galleryList.appendChild(item);
+                });
+            } catch (err) {
+                galleryList.innerHTML = `<div style="font-size:12px; color:#ff5252;">Failed to load clips. Is server running?</div>`;
+            }
+        }
+
+        function playVideo(filename) {
+            const modal = document.getElementById('videoModal');
+            const player = document.getElementById('videoPlayer');
+            player.src = `${BASE_URL}/video/${filename}`;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('videoModal');
+            const player = document.getElementById('videoPlayer');
+            player.pause();
+            modal.style.display = 'none';
+        }
+
+        // Auto load gallery on open
+        loadGallery();
+    </script>
+</body>
+</html>
