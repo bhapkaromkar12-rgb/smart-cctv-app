@@ -35,8 +35,8 @@ MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://bhapkaromkar12_db_user:Bi
 
 client = MongoClient(MONGO_URI)
 db = client['smart_cctv']              # Database Name
-users_collection = db['users']         # Collection (Table) for Users
-otp_store = {}                        # Temporary OTP storage
+users_collection = db['users']         # Collection for Users
+otp_store = {}                         # Temporary OTP storage
 
 # Base Path setup
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -163,44 +163,41 @@ def get_video(filename: str):
 
 # --- AUTH API ROUTES ---
 
-# Fast2SMS API Key (Render Environment Variable ya Direct String)
 FAST2SMS_API_KEY = os.environ.get("FAST2SMS_API_KEY", "ndYBTOuoNDye8IHXPM9bh1mZp6V3GUfizLCJqStwsg47R5AvFj1ZDiVzb8BsUCgdfnkhJERm7eoGpya0")
 
 @app.post("/api/send-otp")
 def send_otp(data: SendOTPReq):
-    # 4-Digit Random OTP
+    # 1. 4-Digit Random OTP Generate karo
     otp = str(random.randint(1000, 9999))
     otp_store[data.mobile] = otp
 
-    # Fast2SMS API Request
-    url = "https://www.fast2sms.com/dev/bulkV2"
-    payload = f"variables_values={otp}&route=otp&numbers={data.mobile}"
-    headers = {
-        'authorization': FAST2SMS_API_KEY,
-        'Content-Type': "application/x-www-form-urlencoded",
-        'Cache-Control': "no-cache"
-    }
+    # 2. Fast2SMS Quick Transactional Route (route=q handles message without website verification restriction)
+    msg = f"Your Smart CCTV OTP is {otp}"
+    url = f"https://www.fast2sms.com/dev/bulkV2?authorization={FAST2SMS_API_KEY}&route=q&message={msg}&flash=0&numbers={data.mobile}"
 
     try:
-        response = requests.request("POST", url, data=payload, headers=headers)
+        response = requests.get(url, timeout=5)
         res_data = response.json()
+        print(f"[FAST2SMS RESPONSE]: {res_data}")
 
         if res_data.get("return") == True:
-            print(f"[SMS SENT] OTP {otp} sent to {data.mobile}")
-            return {"message": f"OTP successfully sent to {data.mobile}"}
+            return {"message": f"OTP sent to {data.mobile}"}
         else:
-            print(f"[SMS ERROR] Fast2SMS Response: {res_data}")
-            # Fallback to console print if API fails
+            # Fallback for smooth testing if API key or DLT rules block SMS
+            print(f"[SMS WARNING]: {res_data}")
             return {"message": f"OTP sent to {data.mobile}", "demo_otp": otp}
 
     except Exception as e:
-        print(f"[SMS EXCEPTION] {e}")
-        return {"message": f"OTP sent to {data.mobile}", "demo_otp": otp}
+        print(f"[SMS EXCEPTION]: {e}")
+        return {"message": f"OTP generated", "demo_otp": otp}
 
 @app.post("/api/register")
 def register(data: RegisterReq):
-    if otp_store.get(data.mobile) != data.otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP!")
+    saved_otp = str(otp_store.get(data.mobile, ""))
+    user_otp = str(data.otp).strip()
+
+    if not saved_otp or saved_otp != user_otp:
+        raise HTTPException(status_code=400, detail="Invalid or Expired OTP!")
     
     existing_user = users_collection.find_one({"$or": [{"username": data.username}, {"mobile": data.mobile}]})
     if existing_user:
@@ -224,8 +221,11 @@ def login(data: LoginReq):
 
 @app.post("/api/reset-password")
 def reset_password(data: ResetPassReq):
-    if otp_store.get(data.mobile) != data.otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP!")
+    saved_otp = str(otp_store.get(data.mobile, ""))
+    user_otp = str(data.otp).strip()
+
+    if not saved_otp or saved_otp != user_otp:
+        raise HTTPException(status_code=400, detail="Invalid or Expired OTP!")
     
     user = users_collection.find_one({"mobile": data.mobile})
     if not user:
@@ -235,6 +235,7 @@ def reset_password(data: ResetPassReq):
         {"mobile": data.mobile},
         {"$set": {"password": data.new_password}}
     )
+    
     otp_store.pop(data.mobile, None)
     return {"message": "Password updated successfully!"}
 
