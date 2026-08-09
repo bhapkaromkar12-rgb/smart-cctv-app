@@ -4,3 +4,5 @@ opencv-python-headless
 numpy
 pymongo
 dnspython
+pydantic
+requests

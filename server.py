@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pymongo import MongoClient
 import uvicorn
+import requests
 
 app = FastAPI()
 
@@ -162,11 +163,39 @@ def get_video(filename: str):
 
 # --- AUTH API ROUTES ---
 
+# Fast2SMS API Key (Render Environment Variable ya Direct String)
+FAST2SMS_API_KEY = os.environ.get("FAST2SMS_API_KEY", "ndYBTOuoNDye8IHXPM9bh1mZp6V3GUfizLCJqStwsg47R5AvFj1ZDiVzb8BsUCgdfnkhJERm7eoGpya0")
+
 @app.post("/api/send-otp")
 def send_otp(data: SendOTPReq):
+    # 4-Digit Random OTP
     otp = str(random.randint(1000, 9999))
     otp_store[data.mobile] = otp
-    return {"message": f"OTP sent to {data.mobile}", "demo_otp": otp}
+
+    # Fast2SMS API Request
+    url = "https://www.fast2sms.com/dev/bulkV2"
+    payload = f"variables_values={otp}&route=otp&numbers={data.mobile}"
+    headers = {
+        'authorization': FAST2SMS_API_KEY,
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Cache-Control': "no-cache"
+    }
+
+    try:
+        response = requests.request("POST", url, data=payload, headers=headers)
+        res_data = response.json()
+
+        if res_data.get("return") == True:
+            print(f"[SMS SENT] OTP {otp} sent to {data.mobile}")
+            return {"message": f"OTP successfully sent to {data.mobile}"}
+        else:
+            print(f"[SMS ERROR] Fast2SMS Response: {res_data}")
+            # Fallback to console print if API fails
+            return {"message": f"OTP sent to {data.mobile}", "demo_otp": otp}
+
+    except Exception as e:
+        print(f"[SMS EXCEPTION] {e}")
+        return {"message": f"OTP sent to {data.mobile}", "demo_otp": otp}
 
 @app.post("/api/register")
 def register(data: RegisterReq):
